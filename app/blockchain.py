@@ -9,9 +9,8 @@ class Blockchain:
         self.chain = []
         self.pending_transactions = []
         self.current_node_url = current_node_url
-        public_ipv4 = self.get_public_ipv4()
+        public_ipv4 = Blockchain.get_public_ipv4()  # Here
         if current_node_url is None:
-            public_ipv4 = self.get_public_ipv4()
             if public_ipv4 is not None:
                 self.current_node_url = f'http://{public_ipv4}:5000'
         self.merkle_tree_proecss = []
@@ -19,11 +18,11 @@ class Blockchain:
         self.genesis_nonce = self.proof_of_work(self.hash_function('0'), {'merkle_root':self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]),'index' : 1})
         self.add_genesis_transaction({'amount' : 50,'sender': '0','recipient':self.node_address(),'transaction_id' : str(uuid4()).replace('-','')})
 
-
         self.create_new_block(self.genesis_nonce, self.hash_function('0'), self.hash_block(self.hash_function('0'), {'merkle_root':self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]),'index' : 1},self.genesis_nonce),self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]))
         self.create_new_transaction(6.25,'00',self.node_address)
         
-    def get_public_ipv4(self):
+    @staticmethod  # Here
+    def get_public_ipv4():
         try:
             public_ipv4 = str(urlopen('http://169.254.169.254/latest/meta-data/public-ipv4').read().decode('utf-8'))
             return public_ipv4
