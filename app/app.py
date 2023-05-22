@@ -4,11 +4,12 @@ from blockchain import Blockchain
 from uuid import uuid4
 import requests
 import sys
+node_address = str(uuid4()).replace('-', '') 
+
 
 app = Flask(__name__)
 bitcoin = Blockchain()
 
-node_address = bitcoin.node_address
 
 
 @app.route('/blockchain', methods=['GET']) #전체 블록을 보여줌
@@ -146,28 +147,33 @@ def receive_new_block():
 @app.route('/consensus', methods=['GET'])
 def consensus():
     request_promises = []
-    for network_node_url in bitcoin.network_nodes:
+    for network_node_url in bitcoin.network_nodes: #연결된 모든 노드의 체인을 가져오는 과정
         request_promises.append(requests.get(network_node_url + '/blockchain'))
 
     blockchains = [rp.json() for rp in request_promises]
+    
+    #현재 노드의 데이터 변수에 저장
     current_chain_length = len(bitcoin.chain)
     max_chain_length = current_chain_length
     new_longest_chain = None
     new_pending_transactions = None
 
-    for blockchain in blockchains:
-        if len(blockchain['chain']) > max_chain_length:
+    for blockchain in blockchains: #전체 노드의 블록 순회
+        if len(blockchain['chain']) > max_chain_length: # 현재 노드의 블록보다 더 큰 노드를 찾았을 때
+            #채우시오 :  #max_chain_length에 찾은 노드의 체인 길이 저장
+            #채우시오 :  #가장 긴 노드를 현재 노드의 체인에서 새로운 노드의 체인으로 변경
+            #채우시오 :  #마찬가지로 pending_transactions도 변경
             max_chain_length = len(blockchain['chain'])
             new_longest_chain = blockchain['chain']
             new_pending_transactions = blockchain['pending_transactions']
 
-    if not new_longest_chain or (new_longest_chain and not bitcoin.chain_is_valid(new_longest_chain)):
+    if not new_longest_chain or (new_longest_chain and not bitcoin.chain_is_valid(new_longest_chain)): #값이 없거나 값이 있는데 체인 검증 결과가 flase 이면 체인은 교체되지 않음
         return jsonify({
             'note': 'Current chain has not been replaced.',
             'chain': bitcoin.chain
         })
 
-    else:
+    else: #아닐경우 교체됨
         bitcoin.chain = new_longest_chain
         bitcoin.pending_transactions = new_pending_transactions
         return jsonify({

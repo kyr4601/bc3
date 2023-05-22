@@ -9,39 +9,29 @@ class Blockchain:
         self.chain = []
         self.pending_transactions = []
         self.current_node_url = current_node_url
-        public_ipv4 = Blockchain.get_public_ipv4()  # Here
-        if current_node_url is None:
-            if public_ipv4 is not None:
-                self.current_node_url = f'http://{public_ipv4}:5000'
+
         self.merkle_tree_proecss = []
         self.network_nodes = []
         self.genesis_nonce = self.proof_of_work(self.hash_function('0'), {'merkle_root':self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]),'index' : 1})
-        self.add_genesis_transaction({'amount' : 50,'sender': '0','recipient':self.node_address(),'transaction_id' : str(uuid4()).replace('-','')})
-
+        if len(self.chain) == 0 :
+            self.add_genesis_transaction({'amount' : 50,'sender': '0','recipient':self.node_address(),'transaction_id' : str(uuid4()).replace('-','')})
         self.create_new_block(self.genesis_nonce, self.hash_function('0'), self.hash_block(self.hash_function('0'), {'merkle_root':self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]),'index' : 1},self.genesis_nonce),self.create_merkle_tree([self.hash_function(str(tx)) for tx in self.pending_transactions]))
-        self.create_new_transaction(6.25,'00',self.node_address)
+        if(len(self.chain) == 1):
+            self.pending_transactions.append(self.create_new_transaction(6.25,'00',"00"))
         
-    @staticmethod  # Here
-    def get_public_ipv4():
-        try:
-            public_ipv4 = str(urlopen('http://169.254.169.254/latest/meta-data/public-ipv4').read().decode('utf-8'))
-            return public_ipv4
-        except Exception as e:
-            print(f"Failed to get public ipv4: {e}")
-            return None
 
     def create_new_block(self, nonce, previous_block_hash, hash_, merkle_root):
         new_block = {
             'index': len(self.chain) + 1,
             'timestamp': int(time.time() * 1000),
             'transactions': self.pending_transactions,
-            'merkel_tree_process' : self.merkle_tree_proecss,
             'merkle_root': merkle_root,
             'nonce': nonce,
             'hash': hash_,
             'previous_block_hash': previous_block_hash
         }
         self.pending_transactions = []
+        
         self.chain.append(new_block)
         return new_block
     
@@ -80,31 +70,6 @@ class Blockchain:
         self.pending_transactions.append(transaction_obj)
         return True
 
-    def chain_is_valid(self, chain):
-        genesis_block = chain[0]
-        correct_nonce = genesis_block['nonce'] == 100
-        correct_previous_block_hash = genesis_block['previous_blockHash'] == '0'
-        correct_hash = genesis_block['hash'] == '0'
-        correct_transactions = len(genesis_block['transactions']) == 0
-        validChain  = True
-
-        if not (correct_nonce and correct_previous_block_hash and correct_hash and correct_transactions):
-            print("1")
-            validChain = False
-
-        for i in range(1, len(chain)):
-            current_block = chain[i]
-            prev_block = chain[i - 1]
-
-            block_hash = self.hash_block(prev_block['hash'],{"transactions": current_block['transactions'], "index": current_block['index']}, current_block['nonce'])
-            print(block_hash)
-            if block_hash[:4] != '0000':
-                validChain = False
-
-            if current_block['previousBlockHash'] != prev_block['hash']:
-                validChain = False
-
-        return validChain
     
     def get_block(self, block_hash):
         correct_block = None
@@ -149,25 +114,48 @@ class Blockchain:
             'addressBalance': balance
         }
     
-    def hash_function(self, data):
+    #검증함수
+    def chain_is_valid(self, chain):
+            validChain  = True
+
+            for i in range(1, len(chain)):
+                current_block = chain[i] ## 채우시오 : 현재 체인 i를 이용해서 채우시오
+                prev_block = chain[i - 1] #채우시오 : 이전 노드 i를 이용해서 채우시오
+
+                block_hash = self.hash_block(prev_block['hash'],{"transactions": current_block['transactions'], "index": current_block['index']}, current_block['nonce'])
+                print(block_hash)
+                if block_hash[:4] != '0000': #채우시오 : i가 1이 아니거나 hash값 찾은 hash값 조건 넣기 :
+                    validChain = False
+
+                if i != 1 or current_block['previous_block_hash'] != prev_block['hash']: #채우시오 : i가 1이 아니거나 현재 블럭의 previous_hash값과 이전 블럭의 hash값이 같은지 비교:
+                    validChain = False
+
+            return validChain
+
+
+
+    #hash화 하는 함수
+    def hash_function(self, data): 
         return hashlib.sha256(data.encode('utf-8')).hexdigest()
     
+    # left,right 노드 받아서 더하고 hash 하는 함수
     def create_merkle_tree_node(self, left, right):
-        self.merkle_tree_proecss.append(self.hash_function(left))
-        self.merkle_tree_proecss.append(self.hash_function(right))
-        self.merkle_tree_proecss.append(self.hash_function(left + right))
         return self.hash_function(left + right)
     
+
+    #create_merkle_tree
     def create_merkle_tree(self, transactions):
         if len(transactions) == 0:
             return None
 
-        elif len(transactions) == 1: # 제네시스 및 처음부터 한개일때
+        elif len(transactions) == 1: # 제네시스생성 및 tx가 처음부터 한개일때 (coinbase tx만 있을때)
+            #채우시오 : 가장 마지막 tx를 trasactions에 추가
             transactions.append(transactions[-1])
             new_level = []
+            #for i in range(#채우시오, 채우시오, 채우시오): 0부터 len(tx)까지
             for i in range(0, len(transactions), 2):
-                left = transactions[i]
-                right = transactions[i + 1]
+                left = transactions[i] #채우시오
+                right = transactions[i + 1] #채우시오
                 new_level.append(self.create_merkle_tree_node(left, right))
             
             transactions = new_level
@@ -176,13 +164,14 @@ class Blockchain:
         
         else: #두개
             while len(transactions) > 1:
-                if len(transactions) % 2 != 0:
-                    transactions.append(transactions[-1])
+                if len(transactions) % 2 != 0:  #채우시오 : 홀수일 때:
+                     transactions.append(transactions[-1]) #채우시오 : 가장 마지막 tx를 trasactions에 추가
 
                 new_level = []
+                #for i in range(#채우시오, 채우시오, 채우시오): 0부터 len(tx)까지
                 for i in range(0, len(transactions), 2):
-                    left = transactions[i]
-                    right = transactions[i + 1]
+                    left = transactions[i] #채우시오 : i를 활용하여 왼쪽 노드
+                    right = transactions[i + 1] #채우시오 : i를 활용하여 오른쪽노드
                     new_level.append(self.create_merkle_tree_node(left, right))
 
                 transactions = new_level
